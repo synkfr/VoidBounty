@@ -1,0 +1,40 @@
+# <<==================================>>
+#            VoidBountyPlugin
+# <<==================================>>
+
+# Configuration For VoidBountyPlugin
+
+# Bounty amount per kill if no specific mob bounty is set
+default-bounty-per-kill: 100.0
+
+# Mob-specific bounties
+mob-bounties:
+  - ZOMBIE:50
+  - SKELETON:75
+  - ENDER_DRAGON:10000
+  - CREEPER:30
+  - SPIDER:40
+
+# Kill streak multipliers
+streak-multiplier: 0.05  # 5% per streak
+
+
+# ===========================
+#        Join Message
+# ===========================
+
+# Join messages based on bounty ranges
+join-messages:
+  newbie:
+    min: 0
+    max: 99999
+    message: '&b{player} has joined the game. Welcome, &aNewbie!'
+  adventurer:
+    min: 100000
+    max: 999999
+    message: '&b{player} has joined the game. Behold, the &9Adventurer!'
+  warlord:
+    min: 1000000
+    max: 9999999
+    message: '&b{player} has joined the game. All hail the &6Warlord!'
+# add more if necessary
