@@ -1,0 +1,48 @@
+name: VoidBounty
+main: org.ayosynk.voidBounty.VoidBounty
+version: 1.0
+author: AyoSynk
+description: >
+  A bounty plugin where players earn bounties by killing players or mobs, with customizable features, mob blacklist, streak multipliers, and more.
+
+# Commands Configuration
+commands:
+  bounty:
+    description: Main command for the bounty system.
+    usage: /bounty <reload|set|leaderboard|target|sb>
+    aliases: [b]
+    permission: bounty.use
+    permission-message: You don't have permission to use this command!
+
+# Permissions Configuration
+permissions:
+  bounty.use:
+    description: Allows the player to use the /bounty commands.
+    default: true
+
+  bounty.admin:
+    description: Allows the player to reload the config, manage settings, and set player bounties.
+    default: op
+
+  bounty.set:
+    description: Allows the player to set a bounty on another player.
+    default: op
+
+  bounty.reload:
+    description: Allows the player to reload the bounty plugin configuration.
+    default: op
+
+  bounty.leaderboard:
+    description: Allows the player to view the bounty leaderboard.
+    default: true
+
+  bounty.target:
+    description: Allows the player to set or check bounty targets.
+    default: op
+
+  bounty.sb:
+    description: Allows the player to toggle the bounty scoreboard.
+    default: true
+
+depend: [Vault]
+softdepend: [EssentialsX, Geyser]  # Soft dependencies for economy and crossplay support

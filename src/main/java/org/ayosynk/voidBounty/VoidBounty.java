@@ -16,6 +16,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 
 public class VoidBounty extends JavaPlugin implements Listener {
@@ -122,6 +123,11 @@ public class VoidBounty extends JavaPlugin implements Listener {
             LivingEntity livingEntity = (LivingEntity) entity;
             Player killer = livingEntity.getKiller(); // Get the player who killed the entity
 
+            // Check if the entity is blacklisted
+            if (mobBountyManager.isBlacklisted(livingEntity.getType())) {
+                return; // Exit if the mob is blacklisted
+            }
+
             if (killer != null) {
                 UUID killerId = killer.getUniqueId();
                 double currentBounty = bounties.getOrDefault(killerId, 0.0);
@@ -155,20 +161,21 @@ public class VoidBounty extends JavaPlugin implements Listener {
         }
     }
 
-
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         UUID playerId = player.getUniqueId();
         double bounty = bounties.getOrDefault(playerId, 0.0);
 
-        for (String section : config.getConfigurationSection("join-messages").getKeys(false)) {
-            double minBounty = config.getDouble("join-messages." + section + ".min");
-            double maxBounty = config.getDouble("join-messages." + section + ".max");
-            if (bounty >= minBounty && bounty < maxBounty) {
-                String message = ChatColor.translateAlternateColorCodes('&', config.getString("join-messages." + section + ".message"));
-                event.setJoinMessage(message);
-                break;
+        // Check join messages based on bounty ranges
+        for (String key : config.getConfigurationSection("join-messages").getKeys(false)) {
+            double min = config.getDouble("join-messages." + key + ".min");
+            double max = config.getDouble("join-messages." + key + ".max");
+
+            if (bounty >= min && bounty <= max) {
+                String message = config.getString("join-messages." + key + ".message").replace("{player}", player.getName());
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+                break; // Send the first matching message
             }
         }
     }
