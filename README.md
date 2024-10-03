@@ -31,6 +31,10 @@ The main configuration file is located at `plugins/BountyPlugin/config.yml`. Her
 
 # Configuration For VoidBountyPlugin
 
+# ===========================
+#        Bounties
+# ===========================
+
 # Bounty amount per kill if no specific mob bounty is set
 default-bounty-per-kill: 100.0
 
@@ -41,13 +45,26 @@ mob-bounties:
   - ENDER_DRAGON:10000
   - CREEPER:30
   - SPIDER:40
+  # Add more mobs as needed, following the format MOB_NAME:BOUNTY_AMOUNT
 
 # Kill streak multipliers
+# Multiplier applied per kill streak, i.e., 5% per streak point
 streak-multiplier: 0.05  # 5% per streak
 
+# ===========================
+#    Mob Blacklist
+# ===========================
+
+# Mob blacklist: Mobs listed here will not give a bounty when killed
+mob-blacklist:
+  - VILLAGER
+  - PILLAGER  # Fixed typo
+  # - COW
+  # - CHICKEN
+  # Add more mobs to blacklist if needed
 
 # ===========================
-#        Join Message
+#        Join Messages
 # ===========================
 
 # Join messages based on bounty ranges
@@ -64,4 +81,17 @@ join-messages:
     min: 1000000
     max: 9999999
     message: '&b{player} has joined the game. All hail the &6Warlord!'
-# add more if necessary
+  master:
+    min: 10000000
+    max: 99999999
+    message: '&b{player} has joined the game. Witness the power of the &5Master!'
+  emperor:
+    min: 100000000
+    max: 999999999
+    message: '&b{player} has joined the game. Bow before the &dEmperor!'
+  god:
+    min: 1000000000
+    max: 9999999999
+    message: '&b{player} has joined the game. The &cGod &bwalks among us!'
+
+# Add more join messages if necessary, following the structure ROLE_NAME, min, max, and message.
