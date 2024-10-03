@@ -8,7 +8,7 @@ The Bounty Plugin enhances the gameplay experience by allowing players to earn b
 - Lose 50% of your bounty upon death.
 - Commands to manage bounties:
   - `/bounty reload`: Reload the plugin configuration.
-  - `/bounty set <player> <amount>`: Set a specific bounty on a player.
+  - `/bounty set <player> <amount>`: Set a specific bounty on a player. This a Admin Command but if you have Luckperms or any kind of permission manager you can change it.
   - `/bounty leaderboard`: View the leaderboard of players with the highest bounties.
 - Special join messages based on bounty ranges.
 - Support for chat color in messages.
