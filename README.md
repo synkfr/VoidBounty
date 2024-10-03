@@ -1,7 +1,7 @@
 # Bounty Plugin
 
 ## Overview
-The Bounty Plugin enhances the gameplay experience by allowing players to earn bounties for killing other players or mobs. This plugin includes various features to manage bounties, track kill streaks, and display special messages based on bounty amounts.
+The Bounty Plugin enhances the gameplay experience by allowing players to earn bounties for killing other players or mobs. This plugin includes various features to manage bounties, track kill streaks, and display special messages based on bounty amounts. basically this plugin is inspired by one piece and bloxfruit bounty system. This only plugin only have bounty.
 
 ## Features
 - Earn bounties for killing players and mobs.
