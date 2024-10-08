@@ -2,181 +2,278 @@ package org.ayosynk.voidBounty;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 
-public class VoidBounty extends JavaPlugin implements Listener {
+public class VoidBounty extends JavaPlugin {
 
-    private FileConfiguration config;
-    private HashMap<UUID, Double> bounties;
-    private HashMap<UUID, Integer> killStreaks; // Track player kill streaks
-    private MobBountyManager mobBountyManager;
-    private BountyTargetManager bountyTargetManager;
+    private double defaultBountyPerKill;
+    private Map<String, Double> mobBounties = new HashMap<>();
+    private double streakMultiplier;
+    private List<String> mobBlacklist;
+    private Map<String, JoinMessage> joinMessages = new HashMap<>();
+    private FileConfiguration playerDataConfig; // Player data configuration
+
+    // Method to access player data configuration
+    public FileConfiguration getPlayerDataConfig() {
+        return playerDataConfig;
+    }
+
+    // ChatUtils class for formatting and colorizing chat messages
+    static class ChatUtils {
+
+        public static String formatBounty(double amount) {
+            if (amount >= 1_000_000_000_000_000_000L) {
+                // Quintillions
+                return ChatColor.GREEN + String.format("%.2f", amount / 1_000_000_000_000_000_000L) + "Q";
+            } else if (amount >= 1_000_000_000_000L) {
+                // Trillions
+                return ChatColor.GREEN + String.format("%.2f", amount / 1_000_000_000_000L) + "T";
+            } else if (amount >= 1_000_000_000) {
+                // Billions
+                return ChatColor.GREEN + String.format("%.2f", amount / 1_000_000_000) + "B";
+            } else if (amount >= 1_000_000) {
+                // Millions
+                return ChatColor.GREEN + String.format("%.2f", amount / 1_000_000) + "M";
+            } else if (amount >= 1_000) {
+                // Thousands
+                return ChatColor.GREEN + String.format("%.2f", amount / 1_000) + "K";
+            } else {
+                // Less than 1K
+                return ChatColor.GREEN + String.valueOf(amount);
+            }
+        }
+
+        // Method to translate color codes
+        public static String colorize(String message) {
+            return ChatColor.translateAlternateColorCodes('&', message);
+        }
+    }
 
     @Override
     public void onEnable() {
+        getLogger().info("VoidBounty enabled!");
+        loadConfig();
+        loadJoinMessages(); // Load join messages after loading the config
+        loadPlayerData(); // Load player data when the plugin is enabled
+        getServer().getPluginManager().registerEvents(new PlayerListener(this), this);
+        getServer().getPluginManager().registerEvents(new MobListener(this), this);
+
+    }
+
+    // Load join messages from the config
+    public void loadJoinMessages() {
+        joinMessages.clear();
+        FileConfiguration config = getConfig();
+        config.getConfigurationSection("join-messages").getKeys(false).forEach(role -> {
+            double min = config.getDouble("join-messages." + role + ".min");
+            double max = config.getDouble("join-messages." + role + ".max");
+            String message = config.getString("join-messages." + role + ".message");
+            joinMessages.put(role, new JoinMessage(min, max, message));
+        });
+    }
+
+    // Load player data from playerdata.yml
+    private void loadPlayerData() {
+        File playerDataFile = new File(getDataFolder(), "playerdata.yml");
+        if (!playerDataFile.exists()) {
+            saveResource("playerdata.yml", false);
+        }
+        playerDataConfig = YamlConfiguration.loadConfiguration(playerDataFile);
+    }
+
+    @Override
+    public void onDisable() {
+        getLogger().info("VoidBounty disabled!");
+    }
+
+    private void loadConfig() {
         saveDefaultConfig();
-        config = getConfig();
+        FileConfiguration config = getConfig();
+        defaultBountyPerKill = config.getDouble("default-bounty-per-kill");
+        streakMultiplier = config.getDouble("streak-multiplier");
 
-        bounties = new HashMap<>();
-        killStreaks = new HashMap<>();
+        // Load mob bounties
+        for (String mob : config.getStringList("mob-bounties")) {
+            String[] parts = mob.split(":");
+            if (parts.length == 2) {
+                mobBounties.put(parts[0].toUpperCase(), Double.parseDouble(parts[1]));
+            }
+        }
 
-        mobBountyManager = new MobBountyManager(config);
-        bountyTargetManager = new BountyTargetManager();
+        // Load mob blacklist
+        mobBlacklist = config.getStringList("mob-blacklist");
+    }
 
-        getServer().getPluginManager().registerEvents(this, this);
-        getLogger().info("BountyPlugin has been enabled!");
+    public double getDefaultBountyPerKill() {
+        return defaultBountyPerKill;
+    }
+
+    public Map<String, Double> getMobBounties() {
+        return mobBounties;
+    }
+
+    public double getStreakMultiplier() {
+        return streakMultiplier;
+    }
+
+    public List<String> getMobBlacklist() {
+        return mobBlacklist;
+    }
+
+    public Map<String, JoinMessage> getJoinMessages() {
+        return joinMessages;
+    }
+
+    public void addRole(String roleName, double min, double max, String message) {
+        if (joinMessages.containsKey(roleName)) {
+            getLogger().warning("Role " + roleName + " already exists!");
+            return;
+        }
+
+        FileConfiguration config = getConfig();
+        config.set("join-messages." + roleName + ".min", min);
+        config.set("join-messages." + roleName + ".max", max);
+        config.set("join-messages." + roleName + ".message", message);
+
+        saveConfig();
+        loadJoinMessages();
+    }
+
+    public double getPlayerBounty(String playerName) {
+        return playerDataConfig.getDouble("players." + playerName + ".bounty", 0);
+    }
+
+    public void setPlayerBounty(String playerName, double amount) {
+        playerDataConfig.set("players." + playerName + ".bounty", amount);
+        savePlayerData();
+    }
+
+    private void savePlayerData() {
+        try {
+            playerDataConfig.save(new File(getDataFolder(), "playerdata.yml"));
+        } catch (Exception e) {
+            getLogger().severe("Could not save player data: " + e.getMessage());
+        }
+    }
+
+    public String getJoinMessageForBounty(double bounty) {
+        for (Map.Entry<String, JoinMessage> entry : joinMessages.entrySet()) {
+            JoinMessage joinMessage = entry.getValue();
+            if (bounty >= joinMessage.getMin() && bounty <= joinMessage.getMax()) {
+                return joinMessage.getMessage();
+            }
+        }
+        return null;
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (command.getName().equalsIgnoreCase("bounty")) {
             if (args.length == 0) {
-                sender.sendMessage(ChatColor.RED + "Use /bounty reload, /bounty set <player> <amount>, or /bounty leaderboard");
+                sender.sendMessage(ChatUtils.colorize("&cUsage: /bounty <set|remove|player_name|leaderboard|addrole> [arguments]"));
                 return true;
             }
 
-            if (args[0].equalsIgnoreCase("reload")) {
-                reloadConfig();
-                config = getConfig();
-                mobBountyManager.reloadConfig(config);
-                sender.sendMessage(ChatColor.GREEN + "Bounty config reloaded!");
-                return true;
-            }
-
-            if (args[0].equalsIgnoreCase("set") && args.length == 3) {
-                Player target = Bukkit.getPlayer(args[1]);
-                if (target != null && target.isOnline()) {
-                    double amount;
-                    try {
-                        amount = Double.parseDouble(args[2]);
-                    } catch (NumberFormatException e) {
-                        sender.sendMessage(ChatColor.RED + "Invalid amount!");
-                        return true;
-                    }
-                    bounties.put(target.getUniqueId(), amount);
-                    sender.sendMessage(ChatColor.GREEN + "Set bounty for " + target.getName() + " to " + amount);
-                    return true;
-                } else {
-                    sender.sendMessage(ChatColor.RED + "Player not found!");
+            if (args.length == 1) {
+                // Display leaderboard if the argument is "leaderboard"
+                if (args[0].equalsIgnoreCase("leaderboard")) {
+                    displayLeaderboard(sender);
                     return true;
                 }
-            }
 
-            if (args[0].equalsIgnoreCase("leaderboard")) {
-                sender.sendMessage(ChatColor.GOLD + "Bounty Leaderboard:");
-                bounties.entrySet().stream()
-                        .sorted((e1, e2) -> Double.compare(e2.getValue(), e1.getValue()))
-                        .limit(10)
-                        .forEach(entry -> {
-                            Player player = Bukkit.getPlayer(entry.getKey());
-                            if (player != null && player.isOnline()) {
-                                sender.sendMessage(ChatColor.YELLOW + player.getName() + ": " + entry.getValue());
-                            }
-                        });
+                // Show the player's bounty
+                Player target = Bukkit.getPlayer(args[0]);
+                if (target != null) {
+                    double bounty = getPlayerBounty(target.getName());
+                    sender.sendMessage(ChatUtils.colorize("&a" + target.getName() + "'s bounty: " + ChatUtils.formatBounty(bounty)));
+                } else {
+                    sender.sendMessage(ChatUtils.colorize("&cPlayer not found."));
+                }
                 return true;
             }
 
-            // New Feature: Set a bounty target
-            if (args[0].equalsIgnoreCase("target") && args.length == 3) {
-                Player target = Bukkit.getPlayer(args[1]);
-                if (target != null && target.isOnline()) {
-                    double amount;
-                    try {
-                        amount = Double.parseDouble(args[2]);
-                    } catch (NumberFormatException e) {
-                        sender.sendMessage(ChatColor.RED + "Invalid bounty amount!");
-                        return true;
+            // Handle /bounty set <player> <amount>
+            if (args.length >= 3 && args[0].equalsIgnoreCase("set")) {
+                if (sender.hasPermission("voidbounty.admin") || sender.isOp()) {
+                    Player target = Bukkit.getPlayer(args[1]);
+                    if (target != null) {
+                        try {
+                            double amount = Double.parseDouble(args[2]);
+                            setPlayerBounty(target.getName(), amount);
+                            sender.sendMessage(ChatUtils.colorize("&aBounty set for " + target.getName() + ": " + ChatUtils.formatBounty(amount)));
+                        } catch (NumberFormatException e) {
+                            sender.sendMessage(ChatUtils.colorize("&cInvalid number format for bounty amount."));
+                        }
+                    } else {
+                        sender.sendMessage(ChatUtils.colorize("&cPlayer not found."));
                     }
-                    bountyTargetManager.setBountyTarget(target, amount);
-                    sender.sendMessage(ChatColor.GREEN + "Bounty set on " + target.getName() + " for " + amount);
-                    return true;
                 } else {
-                    sender.sendMessage(ChatColor.RED + "Player not found!");
-                    return true;
+                    sender.sendMessage(ChatUtils.colorize("&cYou do not have permission to use this command."));
                 }
+                return true;
             }
+
+            // Handle /bounty remove <player>
+            if (args.length == 2 && args[0].equalsIgnoreCase("remove")) {
+                if (sender.hasPermission("voidbounty.admin") || sender.isOp()) {
+                    Player target = Bukkit.getPlayer(args[1]);
+                    if (target != null) {
+                        setPlayerBounty(target.getName(), 0);
+                        sender.sendMessage(ChatUtils.colorize("&aRemoved bounty for " + target.getName() + "."));
+                    } else {
+                        sender.sendMessage(ChatUtils.colorize("&cPlayer not found."));
+                    }
+                } else {
+                    sender.sendMessage(ChatUtils.colorize("&cYou do not have permission to use this command."));
+                }
+                return true;
+            }
+
+            // Handle invalid commands
+            sender.sendMessage(ChatUtils.colorize("&cUsage: /bounty <set|remove|player_name|leaderboard|addrole> [arguments]"));
+            return true;
         }
         return false;
     }
 
-    @EventHandler
-    public void onEntityKill(EntityDeathEvent event) {
-        Entity entity = event.getEntity();
+    private void displayLeaderboard(CommandSender sender) {
+        sender.sendMessage(ChatColor.GOLD + "=== Bounty Leaderboard ===");
 
-        // Check if the entity is a LivingEntity (like players or mobs)
-        if (entity instanceof LivingEntity) {
-            LivingEntity livingEntity = (LivingEntity) entity;
-            Player killer = livingEntity.getKiller(); // Get the player who killed the entity
-
-            // Check if the entity is blacklisted
-            if (mobBountyManager.isBlacklisted(livingEntity.getType())) {
-                return; // Exit if the mob is blacklisted
-            }
-
-            if (killer != null) {
-                UUID killerId = killer.getUniqueId();
-                double currentBounty = bounties.getOrDefault(killerId, 0.0);
-
-                // Check for mob-specific bounty
-                double mobBounty = mobBountyManager.getBountyForMob(livingEntity.getType());
-                double newBounty = currentBounty + mobBounty;
-
-                // Apply multiplier based on kill streak
-                int streak = killStreaks.getOrDefault(killerId, 0);
-                double multiplier = 1.0 + (streak * config.getDouble("streak-multiplier"));
-                newBounty *= multiplier;
-
-                bounties.put(killerId, newBounty);
-                killer.sendMessage(ChatColor.GREEN + "You earned a bounty! Your new bounty is " + newBounty);
-                killStreaks.put(killerId, streak + 1); // Increase kill streak
-            }
-
-            // Handle player death and bounty loss
-            if (entity.getType() == EntityType.PLAYER) {
-                Player killedPlayer = (Player) entity;
-                UUID killedId = killedPlayer.getUniqueId();
-                double bounty = bounties.getOrDefault(killedId, 0.0);
-                if (bounty > 0) {
-                    double lostBounty = bounty * config.getDouble("death-loss-percentage");
-                    bounties.put(killedId, bounty - lostBounty);
-                    killedPlayer.sendMessage(ChatColor.RED + "You lost " + lostBounty + " of your bounty.");
-                }
-                killStreaks.put(killedId, 0); // Reset kill streak on death
-            }
+        if (!playerDataConfig.contains("players")) {
+            sender.sendMessage(ChatColor.RED + "No players found.");
+            return;
         }
-    }
 
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
-        UUID playerId = player.getUniqueId();
-        double bounty = bounties.getOrDefault(playerId, 0.0);
+        // Create a map to store player names and their bounties
+        Map<String, Double> playerBounties = new HashMap<>();
+        for (String playerName : playerDataConfig.getConfigurationSection("players").getKeys(false)) {
+            double bounty = getPlayerBounty(playerName);
+            playerBounties.put(playerName, bounty);
+        }
 
-        // Check join messages based on bounty ranges
-        for (String key : config.getConfigurationSection("join-messages").getKeys(false)) {
-            double min = config.getDouble("join-messages." + key + ".min");
-            double max = config.getDouble("join-messages." + key + ".max");
+        // Sort players by bounty in descending order
+        List<Map.Entry<String, Double>> sortedPlayers = new ArrayList<>(playerBounties.entrySet());
+        sortedPlayers.sort((a, b) -> Double.compare(b.getValue(), a.getValue())); // Sort by bounty
 
-            if (bounty >= min && bounty <= max) {
-                String message = config.getString("join-messages." + key + ".message").replace("{player}", player.getName());
-                player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
-                break; // Send the first matching message
-            }
+        // Display the top 10 players
+        int rank = 1;
+        for (Map.Entry<String, Double> entry : sortedPlayers) {
+            if (rank > 10) break; // Only show top 10 players
+            String playerName = entry.getKey();
+            double bounty = entry.getValue();
+            sender.sendMessage(ChatUtils.colorize("&6#" + rank + " " + playerName + ": " + ChatUtils.formatBounty(bounty)));
+            rank++;
         }
     }
 }

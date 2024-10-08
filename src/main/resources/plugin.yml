@@ -1,48 +1,36 @@
 name: VoidBounty
 main: org.ayosynk.voidBounty.VoidBounty
 version: 1.0
+api-version: 1.21.1
 author: AyoSynk
 description: >
   A bounty plugin where players earn bounties by killing players or mobs, with customizable features, mob blacklist, streak multipliers, and more.
 
-# Commands Configuration
 commands:
   bounty:
-    description: Main command for the bounty system.
-    usage: /bounty <reload|set|leaderboard|target|sb>
-    aliases: [b]
-    permission: bounty.use
-    permission-message: You don't have permission to use this command!
+    description: >
+      Main command for managing bounties, including setting, removing, viewing,
+      displaying leaderboards, and adding new roles.
+    usage: /bounty <set|remove|player_name|leaderboard> [arguments]
+    aliases: [bounty, bounties, b]
+    permission: voidbounty.command.bounty
 
 # Permissions Configuration
 permissions:
-  bounty.use:
-    description: Allows the player to use the /bounty commands.
+  # General Bounty Command Permission
+  voidbounty.command.bounty:
+    description: Allows the player to use the /bounty command and its subcommands.
     default: true
 
-  bounty.admin:
-    description: Allows the player to reload the config, manage settings, and set player bounties.
+  # Admin Permission for Managing Bounties and Roles
+  voidbounty.admin:
+    description: Allows access to admin-specific bounty commands such as addrole.
     default: op
 
-  bounty.set:
-    description: Allows the player to set a bounty on another player.
-    default: op
+# Dependencies
+depend:
+  - Vault  # Required for economy integration
 
-  bounty.reload:
-    description: Allows the player to reload the bounty plugin configuration.
-    default: op
-
-  bounty.leaderboard:
-    description: Allows the player to view the bounty leaderboard.
-    default: true
-
-  bounty.target:
-    description: Allows the player to set or check bounty targets.
-    default: op
-
-  bounty.sb:
-    description: Allows the player to toggle the bounty scoreboard.
-    default: true
-
-depend: [Vault]
-softdepend: [EssentialsX, Geyser]  # Soft dependencies for economy and crossplay support
+softdepend:
+  - EssentialsX  # Optional: Enhances economy compatibility and provides additional utilities
+  - Geyser        # Optional: Enables cross-play compatibility between Java and Bedrock editions
